@@ -26,31 +26,24 @@ main.snd: main.bbl
 	sed -i 's/hyperindexformat{\\\(infn {[0-9]*\)}/\1/' main.sdx # ordering of references to footnotes
 	sed -i 's/hyperindexformat{\\\(infn {[0-9]*\)}/\1/' main.adx
 	sed -i 's/hyperindexformat{\\\(infn {[0-9]*\)}/\1/' main.ldx
-	sed -i 's/.*Office.*//' main.adx
-	sed -i 's/.*Team.*//' main.adx
-	sed -i 's/.*Bureau.*//' main.adx
-	sed -i 's/.*Organisation.*//' main.adx
-	sed -i 's/.*Organization.*//' main.adx
-	sed -i 's/.*Embassy.*//' main.adx
-	sed -i 's/.*Association.*//' main.adx
-	sed -i 's/.*Commission.*//' main.adx
-	sed -i 's/.*committee.*//' main.adx
-	sed -i 's/.*government.*//' main.adx
+	sed -i 's/.*(Office|Team|Bureau|Organisation|Organization|Embassy|Association|Commission|committee|government).*//' main.adx
 	sed -i 's/\\MakeCapital//' main.adx
-	python3 fixindex.py
-	mv mainmod.adx main.adx
+# 	python3 fixindex.py
 	makeindex -o main.and main.adx
+	grep -o  ", [^0-9, \\]*," main.and
 	makeindex -o main.lnd main.ldx
 	makeindex -o main.snd main.sdx 
+	echo "check for doublets in name index"
+	grep -o  ", [^0-9 \\}]*," main.and|sed "s/, //" | sed "s/,\$//"
 	xelatex main 
  
 
 #create a png of the cover
 cover: FORCE
 	convert main.pdf\[0\] -quality 100 -background white -alpha remove -bordercolor "#999999" -border 2  cover.png
-	cp cover.png googlebooks_frontcover.png
-	convert -geometry 50x50% cover.png covertwitter.png
-	convert main.pdf\[0\] -quality 100 -background white -alpha remove -bordercolor "#999999" -border 2  -resize x495 coveromp.png
+# 	cp cover.png googlebooks_frontcover.png
+# 	convert -geometry 50x50% cover.png covertwitter.png
+# 	convert main.pdf\[0\] -quality 100 -background white -alpha remove -bordercolor "#999999" -border 2  -resize x495 coveromp.png
 	display cover.png
 
 openreview: openreview.pdf
@@ -59,12 +52,7 @@ openreview.pdf:
 	pdftk main.pdf multistamp orstamp.pdf output openreview.pdf 
 
 proofreading: proofreading.pdf
-	
-githubrepo: localmetadata.tex proofreading versions.json
-	grep lsID localmetadata.tex |egrep -o "[0-9]*" > ID	
-	git clone https://github.com/langsci/`cat ID`.git
-	cp proofreading.pdf Makefile versions.json `cat ID`
-	mv `cat ID` ..
+
 	
 versions.json: 
 	grep "^.title{" localmetadata.tex|grep -o "{.*"|egrep -o "[^{}]+">title
@@ -96,13 +84,14 @@ paperhive:  proofreading.pdf versions.json README.md
 	git checkout main
 	git commit -m 'new README' README.md
 	git push
+		
 
 papercurl:
 	$(eval dir=$(shell pwd))
 	$(eval ID=$(shell basename $(dir)))
 	$(eval urlstring="https://paperhive.org/api/document-items/remote?type=langsci&id="$(ID))
 	curl -X POST $(urlstring)
-		
+
 firstedition:
 	git checkout gh-pages
 	git pull origin gh-pages
@@ -124,8 +113,6 @@ chop:
 	egrep -o "\{chapter\}\{Index\}\{[0-9]+\}\{section\*\.[0-9]+\}" main.toc| grep -o "\..*"|egrep -o [0-9]+ >> cuts.txt
 	bash chopchapters.sh `grep "mainmatter starts" main.log|grep -o "[0-9]*" $1 $2`
 	
-chapternames:
-	egrep -o "\{chapter\}\{\\\numberline \{[0-9]+}[A-Z][^\}]+\}" main.toc | egrep -o "[[:upper:]][^\}]+" > chapternames	
 	
 #housekeeping	
 clean:
@@ -144,6 +131,9 @@ realclean: clean
 chapterlist:
 	grep chapter main.toc|sed "s/.*numberline {[0-9]\+}\(.*\).newline.*/\\1/" 
 
+
+chapternames:
+	egrep -o "\{chapter\}\{\\\numberline \{[0-9]+}[A-Z][^\}]+\}" main.toc | egrep -o "[[:upper:]][^\}]+" > chapternames
 
 barechapters:
 	cat chapters/*tex | detex > barechapters.txt
